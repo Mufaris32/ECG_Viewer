@@ -1,43 +1,82 @@
-import React, { useState } from "react";
-import { View, Text, ScrollView, StyleSheet, TextInput, StatusBar } from "react-native";
-import { Card, Badge } from "../components";
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from "../constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-
-interface HistoryRecord {
-  id: number;
-  date: string;
-  time: string;
-  heartRate: number;
-  avgECG: number;
-  status: "normal" | "elevated" | "low";
-  duration: string;
-}
+import React, { useEffect, useState } from "react";
+import { Alert, RefreshControl, ScrollView, StatusBar, StyleSheet, Text, TextInput, View } from "react-native";
+import { Badge, Card } from "../components";
+import { BorderRadius, Colors, Shadows, Spacing, Typography } from "../constants/theme";
+import { deleteECGSession, ECGSession, getAllECGSessions, searchECGSessions } from "../services/StorageService";
 
 export default function History() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [sessions, setSessions] = useState<ECGSession[]>([]);
+  const [filteredSessions, setFilteredSessions] = useState<ECGSession[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Generate dummy data with more details
-  const dummyData: HistoryRecord[] = Array.from({ length: 15 }, (_, i) => {
-    const hr = 60 + Math.floor(Math.random() * 40);
-    return {
-      id: i + 1,
-      date: `2025-10-${String(i + 1).padStart(2, "0")}`,
-      time: `${8 + i % 12}:${(i * 13) % 60} ${i % 2 === 0 ? "AM" : "PM"}`,
-      heartRate: hr,
-      avgECG: parseFloat((Math.random() * 2).toFixed(2)),
-      status: hr > 85 ? "elevated" : hr < 65 ? "low" : "normal",
-      duration: `${5 + (i % 10)} min`,
-    };
-  });
+  // Load ECG sessions on mount
+  useEffect(() => {
+    loadSessions();
+  }, []);
 
-  // Filter data based on search query
-  const filteredData = dummyData.filter(
-    item =>
-      item.date.includes(searchQuery) ||
-      item.time.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.heartRate.toString().includes(searchQuery)
-  );
+  // Filter sessions when search query changes
+  useEffect(() => {
+    handleSearch();
+  }, [searchQuery, sessions]);
+
+  // Load all sessions from storage
+  const loadSessions = async () => {
+    try {
+      setIsLoading(true);
+      const allSessions = await getAllECGSessions();
+      setSessions(allSessions);
+      setFilteredSessions(allSessions);
+    } catch (error) {
+      console.error('Error loading sessions:', error);
+      Alert.alert('Error', 'Failed to load ECG history');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle pull-to-refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadSessions();
+    setIsRefreshing(false);
+  };
+
+  // Search sessions
+  const handleSearch = async () => {
+    if (searchQuery.trim() === '') {
+      setFilteredSessions(sessions);
+    } else {
+      const results = await searchECGSessions(searchQuery);
+      setFilteredSessions(results);
+    }
+  };
+
+  // Delete a session
+  const handleDeleteSession = (id: string, date: string, time: string) => {
+    Alert.alert(
+      'Delete Session',
+      `Are you sure you want to delete the session from ${date} at ${time}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const success = await deleteECGSession(id);
+            if (success) {
+              Alert.alert('Success', 'Session deleted successfully');
+              await loadSessions();
+            } else {
+              Alert.alert('Error', 'Failed to delete session');
+            }
+          },
+        },
+      ]
+    );
+  };
 
   // Get status badge variant
   const getStatusVariant = (status: string) => {
@@ -72,7 +111,7 @@ export default function History() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>ECG History</Text>
           <Text style={styles.headerSubtitle}>
-            {filteredData.length} {filteredData.length === 1 ? "record" : "records"} found
+            {filteredSessions.length} {filteredSessions.length === 1 ? "record" : "records"} found
           </Text>
         </View>
 
@@ -107,9 +146,16 @@ export default function History() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} colors={[Colors.primary.main]} />
+          }
         >
-          {filteredData.length > 0 ? (
-            filteredData.map((item) => (
+          {isLoading ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateTitle}>Loading...</Text>
+            </View>
+          ) : filteredSessions.length > 0 ? (
+            filteredSessions.map((item) => (
               <Card key={item.id} style={styles.historyCard} variant="elevated">
                 <View style={styles.cardContent}>
                   {/* Left Section - Status Icon */}

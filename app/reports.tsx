@@ -1,60 +1,148 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, Alert, ScrollView, StatusBar } from "react-native";
-import { Button, InfoCard, Card } from "../components";
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from "../constants/theme";
 import { Ionicons } from "@expo/vector-icons";
+import React, { useEffect, useState } from "react";
+import { Alert, ScrollView, StatusBar, StyleSheet, Text, View } from "react-native";
+import { Button, Card, InfoCard } from "../components";
+import { BorderRadius, Colors, Spacing, Typography } from "../constants/theme";
+import { getExportPreview, quickExportCSV, quickExportJSON, quickExportPDF } from "../services/ExportService";
+import { getAllECGSessions, getStatistics, getTimeAgo } from "../services/StorageService";
 
 export default function Reports() {
   const [isExporting, setIsExporting] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [statistics, setStatistics] = useState({
+    totalSessions: 0,
+    avgHeartRate: 0,
+    avgDuration: "0 min",
+    lastSessionTimestamp: 0,
+    normalReadings: 0,
+    elevatedReadings: 0,
+    lowReadings: 0,
+  });
 
-  // Simulated statistics
-  const statistics = {
-    totalSessions: 127,
-    avgHeartRate: 75,
-    avgDuration: "8.5 min",
-    lastSession: "2 hours ago",
-    normalReadings: 89,
-    elevatedReadings: 31,
-    lowReadings: 7,
+  // Load statistics on mount
+  useEffect(() => {
+    loadStatistics();
+  }, []);
+
+  // Load statistics from storage
+  const loadStatistics = async () => {
+    try {
+      setIsLoading(true);
+      const stats = await getStatistics();
+      setStatistics(stats);
+    } catch (error) {
+      console.error('Error loading statistics:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Handle PDF export
-  const handleExportPDF = () => {
-    setIsExporting(true);
-    // Simulate export delay
-    setTimeout(() => {
+  const handleExportPDF = async () => {
+    try {
+      setIsExporting(true);
+      const sessions = await getAllECGSessions();
+      
+      if (sessions.length === 0) {
+        Alert.alert('No Data', 'There are no ECG sessions to export.');
+        setIsExporting(false);
+        return;
+      }
+
+      const stats = await getStatistics();
+      const success = quickExportPDF(sessions, stats);
+      
+      if (success) {
+        // Simulate export delay for user feedback
+        setTimeout(() => {
+          setIsExporting(false);
+        }, 1500);
+      } else {
+        setIsExporting(false);
+      }
+    } catch (error) {
+      console.error('Error exporting PDF:', error);
+      Alert.alert('Export Failed', 'An error occurred while exporting the report.');
       setIsExporting(false);
-      Alert.alert(
-        "Export Successful",
-        "Your ECG report has been exported as PDF successfully.",
-        [{ text: "OK" }]
-      );
-    }, 2000);
+    }
   };
 
   // Handle CSV export
-  const handleExportCSV = () => {
-    Alert.alert(
-      "Export to CSV",
-      "ECG data will be exported in CSV format for analysis in spreadsheet applications.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Export", onPress: () => Alert.alert("CSV Export (demo)") },
-      ]
-    );
+  const handleExportCSV = async () => {
+    try {
+      const sessions = await getAllECGSessions();
+      
+      if (sessions.length === 0) {
+        Alert.alert('No Data', 'There are no ECG sessions to export.');
+        return;
+      }
+
+      const preview = getExportPreview(sessions);
+      
+      Alert.alert(
+        "Export to CSV",
+        `${preview}\n\nExport ECG data in CSV format for analysis in spreadsheet applications?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Export", 
+            onPress: () => quickExportCSV(sessions)
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error exporting CSV:', error);
+      Alert.alert('Export Failed', 'An error occurred while exporting the data.');
+    }
+  };
+
+  // Handle JSON export (for backup/restore)
+  const handleExportJSON = async () => {
+    try {
+      const sessions = await getAllECGSessions();
+      
+      if (sessions.length === 0) {
+        Alert.alert('No Data', 'There are no ECG sessions to export.');
+        return;
+      }
+
+      const stats = await getStatistics();
+      quickExportJSON(sessions, stats);
+    } catch (error) {
+      console.error('Error exporting JSON:', error);
+      Alert.alert('Export Failed', 'An error occurred while exporting the data.');
+    }
   };
 
   // Handle Share report
-  const handleShareReport = () => {
-    Alert.alert(
-      "Share Report",
-      "Choose how you'd like to share your ECG report",
-      [
-        { text: "Cancel", style: "cancel" },
-        { text: "Email", onPress: () => Alert.alert("Email Share (demo)") },
-        { text: "More Options", onPress: () => Alert.alert("Share Options (demo)") },
-      ]
-    );
+  const handleShareReport = async () => {
+    try {
+      const sessions = await getAllECGSessions();
+      
+      if (sessions.length === 0) {
+        Alert.alert('No Data', 'There are no ECG sessions to share.');
+        return;
+      }
+
+      Alert.alert(
+        "Share Report",
+        "Choose how you'd like to share your ECG report",
+        [
+          { text: "Cancel", style: "cancel" },
+          { 
+            text: "Export as PDF", 
+            onPress: () => handleExportPDF()
+          },
+          { 
+            text: "Export as CSV", 
+            onPress: () => quickExportCSV(sessions)
+          },
+        ]
+      );
+    } catch (error) {
+      console.error('Error sharing report:', error);
+      Alert.alert('Share Failed', 'An error occurred while sharing the report.');
+    }
   };
 
   return (
@@ -105,7 +193,7 @@ export default function Reports() {
             <View style={styles.statCardWrapper}>
               <InfoCard
                 title="Last Session"
-                value={statistics.lastSession}
+                value={statistics.lastSessionTimestamp > 0 ? getTimeAgo(statistics.lastSessionTimestamp) : 'N/A'}
                 variant="default"
                 icon={<Ionicons name="time" size={24} color={Colors.text.secondary} />}
               />

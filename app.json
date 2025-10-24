@@ -9,7 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSBluetoothAlwaysUsageDescription": "This app uses Bluetooth to connect to your ECG device for real-time heart monitoring.",
+        "NSBluetoothPeripheralUsageDescription": "This app uses Bluetooth to connect to your ECG device for real-time heart monitoring."
+      }
     },
     "android": {
       "adaptiveIcon": {
