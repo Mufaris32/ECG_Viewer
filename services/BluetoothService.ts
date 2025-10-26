@@ -17,8 +17,9 @@ try {
 const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
 const CHARACTERISTIC_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
 
-// Device name to scan for
-const TARGET_DEVICE_NAME = "ECG";
+// Device name to scan for (case-insensitive partial match)
+// Will match: "ECG", "ESP32_ECG", "MyECG", "ECG_Device", etc.
+const TARGET_DEVICE_NAME = "ESP32";
 
 // State management
 let connectedDevice: any = null;
@@ -118,20 +119,30 @@ export async function connectToECGDevice(
     const hasPermissions = await requestBluetoothPermissions();
     if (!hasPermissions) {
       console.error("❌ Bluetooth permissions not granted");
+      console.error("⚠️ Please enable Bluetooth permissions in Settings:");
+      console.error("  Settings > Apps > ECGVisualizer > Permissions");
       updateStatus(ConnectionStatus.ERROR);
       return false;
     }
+    console.log("✅ Bluetooth permissions granted");
 
     // Check Bluetooth state
     const state = await bleManagerInstance.state();
+    console.log("📡 Bluetooth state:", state);
     if (state !== "PoweredOn") {
       console.error("❌ Bluetooth is not powered on:", state);
+      console.error("⚠️ Please enable Bluetooth in your phone settings");
       updateStatus(ConnectionStatus.ERROR);
       return false;
     }
+    console.log("✅ Bluetooth is powered on");
 
     updateStatus(ConnectionStatus.SCANNING);
     console.log("🔍 Scanning for ECG BLE devices...");
+    console.log("📱 Looking for devices with name containing:", TARGET_DEVICE_NAME);
+
+    let devicesFound = 0;
+    const discoveredDeviceNames = new Set<string>(); // Track unique device names
 
     return new Promise((resolve) => {
       // Set scan timeout (30 seconds)
@@ -139,6 +150,24 @@ export async function connectToECGDevice(
         bleManagerInstance.stopDeviceScan();
         if (!connectedDevice) {
           console.error("❌ Device not found within timeout");
+          console.error(`📊 Total devices discovered: ${devicesFound}`);
+          
+          // Show unique device names
+          if (discoveredDeviceNames.size > 0) {
+            console.log("📋 Unique device names found:");
+            Array.from(discoveredDeviceNames)
+              .sort()
+              .forEach((name, index) => {
+                console.log(`  ${index + 1}. "${name}"`);
+              });
+            console.error(`⚠️ None matched "${TARGET_DEVICE_NAME}"`);
+            console.error("💡 Tip: Check your ESP32 device name or update TARGET_DEVICE_NAME");
+          } else if (devicesFound === 0) {
+            console.error("⚠️ NO DEVICES FOUND - Check:");
+            console.error("  1. Bluetooth permissions granted?");
+            console.error("  2. Location services enabled? (Android)");
+            console.error("  3. ESP32 powered on and advertising?");
+          }
           updateStatus(ConnectionStatus.ERROR);
           resolve(false);
         }
@@ -147,6 +176,7 @@ export async function connectToECGDevice(
       bleManagerInstance.startDeviceScan(null, null, async (error: any, device: any) => {
         if (error) {
           console.error("❌ BLE Scan error:", error);
+          console.error("Error details:", JSON.stringify(error));
           bleManagerInstance.stopDeviceScan();
           if (scanTimeout) clearTimeout(scanTimeout);
           updateStatus(ConnectionStatus.ERROR);
@@ -154,10 +184,24 @@ export async function connectToECGDevice(
           return;
         }
 
-        // Check if device matches target name
+        // Log all discovered devices for debugging
         const deviceName = device?.name || device?.localName || "";
-        if (device && deviceName.includes(TARGET_DEVICE_NAME)) {
-          console.log("📡 Found device:", deviceName);
+        if (deviceName) {
+          devicesFound++;
+          // Add to unique names set
+          discoveredDeviceNames.add(deviceName);
+          // Only log first 10 devices to avoid spam
+          if (devicesFound <= 10) {
+            console.log(`🔍 [${devicesFound}] Found BLE device: "${deviceName}"`);
+          }
+        } else if (device?.id) {
+          // Device with no name but has ID
+          devicesFound++;
+        }
+
+        // Check if device matches target name (case-insensitive)
+        if (device && deviceName.toUpperCase().includes(TARGET_DEVICE_NAME.toUpperCase())) {
+          console.log("✅ Target device found:", deviceName);
           bleManagerInstance.stopDeviceScan();
           if (scanTimeout) clearTimeout(scanTimeout);
 

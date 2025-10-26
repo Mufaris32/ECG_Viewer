@@ -159,7 +159,7 @@ export const BorderRadius = {
 // SHADOWS & ELEVATION
 // ===========================
 
-// Material Design elevation system
+// Material Design elevation system with web compatibility
 export const Shadows = {
   none: {
     shadowColor: 'transparent',
@@ -167,6 +167,8 @@ export const Shadows = {
     shadowOpacity: 0,
     shadowRadius: 0,
     elevation: 0,
+    // @ts-ignore - boxShadow is for web compatibility
+    boxShadow: 'none',
   },
   
   // Level 1 - Subtle elevation (buttons, cards)
@@ -176,6 +178,8 @@ export const Shadows = {
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 2,
+    // @ts-ignore - boxShadow is for web compatibility
+    boxShadow: '0px 1px 2px rgba(0, 0, 0, 0.05)',
   },
   
   // Level 2 - Medium elevation (floating elements)
@@ -185,6 +189,8 @@ export const Shadows = {
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 4,
+    // @ts-ignore - boxShadow is for web compatibility
+    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
   },
   
   // Level 3 - High elevation (modals, dialogs)
@@ -194,6 +200,8 @@ export const Shadows = {
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 8,
+    // @ts-ignore - boxShadow is for web compatibility
+    boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.15)',
   },
   
   // Level 4 - Maximum elevation (tooltips, popovers)
@@ -203,6 +211,8 @@ export const Shadows = {
     shadowOpacity: 0.2,
     shadowRadius: 16,
     elevation: 12,
+    // @ts-ignore - boxShadow is for web compatibility
+    boxShadow: '0px 8px 16px rgba(0, 0, 0, 0.2)',
   },
   
   // Colored shadow for primary actions
@@ -212,6 +222,8 @@ export const Shadows = {
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
+    // @ts-ignore - boxShadow is for web compatibility
+    boxShadow: `0px 4px 8px rgba(0, 168, 232, 0.3)`,
   },
 };
 

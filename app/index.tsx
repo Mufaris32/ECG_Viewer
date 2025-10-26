@@ -6,10 +6,10 @@ import { LineChart } from "react-native-chart-kit";
 import { Button, InfoCard } from "../components";
 import { BorderRadius, Colors, Shadows, Spacing, Typography } from "../constants/theme";
 import {
-  ConnectionStatus,
-  connectToECGDevice,
-  disconnectFromECGDevice,
-  isConnected
+    ConnectionStatus,
+    connectToECGDevice,
+    disconnectFromECGDevice,
+    isConnected
 } from "../services/BluetoothService";
 import { startECGSimulation, stopECGSimulation } from "../services/FakeData";
 import { getUserSettings, saveECGSession } from "../services/StorageService";
@@ -23,6 +23,7 @@ export default function Dashboard() {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>(ConnectionStatus.DISCONNECTED);
   const [isConnecting, setIsConnecting] = useState(false);
   const [useFakeData, setUseFakeData] = useState(false); // Fallback for Expo Go
+  const [chartWidth, setChartWidth] = useState(Math.max(Dimensions.get("window").width - 64, 300));
   const router = useRouter();
   
   // Track session data
@@ -167,6 +168,15 @@ export default function Dashboard() {
       }
     };
   }, [useFakeData]);
+
+  // Handle window resize for responsive chart
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setChartWidth(Math.max(window.width - 64, 300));
+    });
+
+    return () => subscription?.remove();
+  }, []);
 
   // Handle start/stop button press
   const handleMonitoringToggle = () => {
@@ -343,7 +353,7 @@ export default function Dashboard() {
               value={heartRate}
               unit="bpm"
               variant="primary"
-              trend={heartRate > 80 ? "up" : heartRate < 70 ? "down" : "neutral"}
+              trend={heartRate > 80 ? "up" : heartRate < 120 ? "down" : "neutral"}
               trendValue={`${Math.abs(heartRate - 75)} from avg`}
               icon={
                 <Ionicons 
@@ -388,7 +398,7 @@ export default function Dashboard() {
                 labels: ecgData.map((_, i) => (i % 5 === 0 ? i.toString() : "")),
                 datasets: [{ data: ecgData.length > 0 ? ecgData : [0] as number[] }],
               }}
-              width={Dimensions.get("window").width - 32}
+              width={chartWidth}
               height={220}
               yAxisSuffix="mV"
               chartConfig={{

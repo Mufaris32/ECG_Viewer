@@ -1,14 +1,15 @@
-import React, { useEffect, useState } from "react";
-import { ScrollView, View, Text, Dimensions, StyleSheet, StatusBar } from "react-native";
-import { LineChart } from "react-native-chart-kit";
-import { generateECGBatch } from "../../services/FakeData";
-import { Colors, Typography, Spacing, BorderRadius, Shadows } from "../../constants/theme";
 import { Ionicons } from "@expo/vector-icons";
+import React, { useEffect, useState } from "react";
+import { Dimensions, ScrollView, StatusBar, StyleSheet, Text, View } from "react-native";
+import { LineChart } from "react-native-chart-kit";
+import { BorderRadius, Colors, Spacing, Typography } from "../../constants/theme";
+import { generateECGBatch } from "../../services/FakeData";
 
 export default function ECGScreen() {
   const [ecgData, setEcgData] = useState<number[]>([]);
   const [isLive, setIsLive] = useState(true);
   const [heartRate] = useState(72);
+  const [chartWidth, setChartWidth] = useState(Math.max(Dimensions.get("window").width - 64, 300));
 
   useEffect(() => {
     // Initialize with a realistic ECG pattern
@@ -27,6 +28,15 @@ export default function ECGScreen() {
 
     return () => clearInterval(interval);
   }, [isLive]);
+
+  // Handle window resize for responsive chart
+  useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setChartWidth(Math.max(window.width - 64, 300));
+    });
+
+    return () => subscription?.remove();
+  }, []);
 
   return (
     <>
@@ -108,7 +118,7 @@ export default function ECGScreen() {
                 labels: ecgData.map((_, i) => (i % 10 === 0 ? "" : "")),
                 datasets: [{ data: ecgData.length > 0 ? ecgData : [0] as number[] }],
               }}
-              width={Dimensions.get("window").width - 32}
+              width={chartWidth}
               height={280}
               chartConfig={{
                 backgroundGradientFrom: Colors.chart.background,
